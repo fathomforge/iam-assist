@@ -1,0 +1,1 @@
+The CI/CD pipeline service account github-actions@platform.iam.gserviceaccount.com needs to deploy Cloud Run services in the staging project web-staging. It should be able to run the deployed services as the runtime service account web-runtime@web-staging.iam.gserviceaccount.com.

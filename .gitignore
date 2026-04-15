@@ -1,0 +1,24 @@
+# Binary
+iam-assist
+
+# Go
+*.exe
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Config with secrets
+.iam-assist.yaml
+
+# Claude Code local config
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

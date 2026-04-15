@@ -1,0 +1,1 @@
+The analytics pipeline service account analytics-pipeline@analytics-prod.iam.gserviceaccount.com needs to pull messages from the Pub/Sub subscription analytics-events-sub in project platform-events.

@@ -1,0 +1,61 @@
+{
+  "request": "The contractor alice@acme-consulting.com needs read access to BigQuery datasets in project billing-prod for an audit. Access should expire on 2026-06-30.",
+  "scope": {
+    "type": "project",
+    "id": "billing-prod",
+    "display": "Billing Production"
+  },
+  "bindings": [
+    {
+      "role": "roles/bigquery.dataViewer",
+      "members": [
+        {
+          "type": "user",
+          "email": "alice@acme-consulting.com",
+          "display": "Alice (Contractor, Acme)"
+        }
+      ],
+      "condition": {
+        "title": "Contract ends 2026-06-30",
+        "description": "Access expires at the end of day on the contract end date.",
+        "expression": "request.time < timestamp(\"2026-07-01T00:00:00Z\")"
+      }
+    },
+    {
+      "role": "roles/bigquery.jobUser",
+      "members": [
+        {
+          "type": "user",
+          "email": "alice@acme-consulting.com",
+          "display": "Alice (Contractor, Acme)"
+        }
+      ],
+      "condition": {
+        "title": "Contract ends 2026-06-30",
+        "description": "Access expires at the end of day on the contract end date.",
+        "expression": "request.time < timestamp(\"2026-07-01T00:00:00Z\")"
+      }
+    }
+  ],
+  "rationale": [
+    {
+      "permission": "bigquery.datasets.get",
+      "reason": "read dataset metadata for audit"
+    },
+    {
+      "permission": "bigquery.tables.getData",
+      "reason": "read table data via queries"
+    },
+    {
+      "permission": "bigquery.jobs.create",
+      "reason": "run audit queries in the project"
+    }
+  ],
+  "warnings": [
+    "EXTERNAL_MEMBER: alice@acme-consulting.com is from an external domain (Principle 4). Verify this contractor is still active before applying."
+  ],
+  "alternatives": [
+    "For stricter control, grant roles/bigquery.dataViewer at the dataset scope on only the datasets under audit",
+    "Add a second condition pinning to the contractor's corporate IP range if you have one"
+  ]
+}

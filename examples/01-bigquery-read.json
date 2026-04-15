@@ -1,0 +1,48 @@
+{
+  "request": "Let the data-science team read BigQuery datasets in project analytics-prod so they can run exploratory queries.",
+  "scope": {
+    "type": "project",
+    "id": "analytics-prod",
+    "display": "Analytics Production"
+  },
+  "bindings": [
+    {
+      "role": "roles/bigquery.dataViewer",
+      "members": [
+        {
+          "type": "group",
+          "email": "data-science@example.com",
+          "display": "Data Science Team"
+        }
+      ]
+    },
+    {
+      "role": "roles/bigquery.jobUser",
+      "members": [
+        {
+          "type": "group",
+          "email": "data-science@example.com",
+          "display": "Data Science Team"
+        }
+      ]
+    }
+  ],
+  "rationale": [
+    {
+      "permission": "bigquery.datasets.get",
+      "reason": "list and read dataset metadata (Recipe §8 BigQuery read)"
+    },
+    {
+      "permission": "bigquery.tables.getData",
+      "reason": "read table contents via queries"
+    },
+    {
+      "permission": "bigquery.jobs.create",
+      "reason": "submit query jobs in the project (required by jobUser)"
+    }
+  ],
+  "warnings": [],
+  "alternatives": [
+    "If only specific datasets are needed, grant roles/bigquery.dataViewer at dataset scope instead of project scope"
+  ]
+}

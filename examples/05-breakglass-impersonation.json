@@ -1,0 +1,39 @@
+{
+  "request": "On-call engineer oncall@mycompany.com needs break-glass ability to impersonate the database-admin service account db-admin@ops-prod.iam.gserviceaccount.com for incident response. Access must expire 4 hours from now.",
+  "scope": {
+    "type": "project",
+    "id": "ops-prod",
+    "display": "Ops Production"
+  },
+  "bindings": [
+    {
+      "role": "roles/iam.serviceAccountTokenCreator",
+      "members": [
+        {
+          "type": "user",
+          "email": "oncall@mycompany.com",
+          "display": "On-call Engineer"
+        }
+      ],
+      "condition": {
+        "title": "4-hour break-glass window, pinned to db-admin SA",
+        "description": "Allows minting tokens only for the specific db-admin service account and only for the next 4 hours.",
+        "expression": "request.time < timestamp(\"2026-04-15T20:00:00Z\") && resource.name == \"projects/ops-prod/serviceAccounts/db-admin@ops-prod.iam.gserviceaccount.com\""
+      }
+    }
+  ],
+  "rationale": [
+    {
+      "permission": "iam.serviceAccounts.getAccessToken",
+      "reason": "mint a short-lived token for the database-admin SA (pinned via CEL)"
+    }
+  ],
+  "warnings": [
+    "HIGH_RISK_ROLE: roles/iam.serviceAccountTokenCreator grants the ability to act as a service account (Principle 2). Restricted here via resource.name CEL pinning.",
+    "BREAK_GLASS: This is elevated temporary access. File an incident ticket before applying and review audit logs after the 4-hour window closes (Principle 5)."
+  ],
+  "alternatives": [
+    "If the incident is recurring, codify the break-glass role as a custom role with only the minimum permissions needed",
+    "Prefer roles/iam.workloadIdentityUser if you can use workload identity federation instead"
+  ]
+}

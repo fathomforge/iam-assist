@@ -1,0 +1,77 @@
+name: Bug report
+description: Something isn't working as documented
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. A minimal reproducer is the
+        fastest path to a fix.
+
+        **Do not** report security vulnerabilities here — email
+        security@fathomforge.dev instead (see [SECURITY.md](../SECURITY.md)).
+
+  - type: input
+    id: version
+    attributes:
+      label: iam-assist version
+      description: Output of `iam-assist --version`
+      placeholder: "iam-assist v0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: AI provider
+      options:
+        - anthropic
+        - openai
+        - google
+        - other / not applicable
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: Model name used, if relevant
+      placeholder: "gemini-2.5-flash"
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact command + input. Redact API keys and internal identifiers.
+      placeholder: |
+        1. `iam-assist generate --provider google "..."`
+        2. ...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Full output including any error message.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        OS: macOS 14.5
+        Go: 1.24.0
+        Shell: zsh 5.9

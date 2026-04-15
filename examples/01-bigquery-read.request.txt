@@ -1,0 +1,1 @@
+Let the data-science team read BigQuery datasets in project analytics-prod so they can run exploratory queries.

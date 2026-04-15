@@ -1,0 +1,1 @@
+On-call engineer oncall@mycompany.com needs break-glass ability to impersonate the database-admin service account db-admin@ops-prod.iam.gserviceaccount.com for incident response. Access must expire 4 hours from now.

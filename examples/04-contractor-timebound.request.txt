@@ -1,0 +1,1 @@
+The contractor alice@acme-consulting.com needs read access to BigQuery datasets in project billing-prod for an audit. Access should expire on 2026-06-30.

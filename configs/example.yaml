@@ -1,0 +1,22 @@
+# iam-assist configuration
+# Place at ~/.iam-assist.yaml or pass --config path/to/config.yaml
+
+# AI provider: "anthropic", "openai", or "google"
+provider: anthropic
+
+# Model override (leave empty for provider default)
+# model: claude-sonnet-4-20250514
+
+# API keys can also be set via environment variables:
+#   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
+# api_key: sk-...
+
+# Default generation options
+defaults:
+  refine: false
+  temperature: 0.1
+
+# Organization context (auto-injected as hints)
+org:
+  domain: yourcompany.com
+  default_project: my-default-project

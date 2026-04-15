@@ -1,0 +1,1 @@
+The ETL service account etl-runner@analytics-prod.iam.gserviceaccount.com needs to write processed files into the bucket gs://analytics-prod-curated.

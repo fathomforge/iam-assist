@@ -1,0 +1,54 @@
+{
+  "request": "The CI/CD pipeline service account github-actions@platform.iam.gserviceaccount.com needs to deploy Cloud Run services in the staging project web-staging. It should be able to run the deployed services as the runtime service account web-runtime@web-staging.iam.gserviceaccount.com.",
+  "scope": {
+    "type": "project",
+    "id": "web-staging",
+    "display": "Web Staging"
+  },
+  "bindings": [
+    {
+      "role": "roles/run.developer",
+      "members": [
+        {
+          "type": "serviceAccount",
+          "email": "github-actions@platform.iam.gserviceaccount.com",
+          "display": "GitHub Actions CI"
+        }
+      ]
+    },
+    {
+      "role": "roles/iam.serviceAccountUser",
+      "members": [
+        {
+          "type": "serviceAccount",
+          "email": "github-actions@platform.iam.gserviceaccount.com",
+          "display": "GitHub Actions CI"
+        }
+      ],
+      "condition": {
+        "title": "Only the web runtime SA",
+        "description": "Narrow serviceAccountUser so CI can only run the web runtime SA, not every SA in the project",
+        "expression": "resource.name == \"projects/web-staging/serviceAccounts/web-runtime@web-staging.iam.gserviceaccount.com\""
+      }
+    }
+  ],
+  "rationale": [
+    {
+      "permission": "run.services.create",
+      "reason": "deploy new Cloud Run services"
+    },
+    {
+      "permission": "run.services.update",
+      "reason": "push new revisions to existing services"
+    },
+    {
+      "permission": "iam.serviceAccounts.actAs",
+      "reason": "required to set the runtime SA on a Cloud Run service (pinned to one SA via CEL)"
+    }
+  ],
+  "warnings": [],
+  "alternatives": [
+    "Restrict further with an additional condition: resource.service == 'run.googleapis.com'",
+    "Pin to specific service names with resource.name.startsWith(...)"
+  ]
+}

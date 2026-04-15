@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a new capability or improvement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: check [CONTRIBUTING.md](../CONTRIBUTING.md) for what's
+        in scope. For new AI providers or top-level commands, discussion
+        first is required.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The *why* is more important than the *how*. Describe the
+                   real situation you hit that made you want this feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you think the tool should do. A concrete example
+                   command or output is ideal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Workarounds you tried, or other tools that do something similar.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This does not require telemetry or phone-home behavior
+          required: true
+        - label: This does not require cloud credentials in the test suite
+          required: true

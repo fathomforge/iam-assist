@@ -1,0 +1,31 @@
+{
+  "request": "The analytics pipeline service account analytics-pipeline@analytics-prod.iam.gserviceaccount.com needs to pull messages from the Pub/Sub subscription analytics-events-sub in project platform-events.",
+  "scope": {
+    "type": "resource",
+    "id": "projects/platform-events/subscriptions/analytics-events-sub",
+    "display": "pubsub subscription: analytics-events-sub"
+  },
+  "bindings": [
+    {
+      "role": "roles/pubsub.subscriber",
+      "members": [
+        {
+          "type": "serviceAccount",
+          "email": "analytics-pipeline@analytics-prod.iam.gserviceaccount.com",
+          "display": "Analytics Pipeline Runner"
+        }
+      ]
+    }
+  ],
+  "rationale": [
+    {
+      "permission": "pubsub.subscriptions.consume",
+      "reason": "pull and acknowledge messages on the specific subscription (Recipe §8 Pub/Sub)"
+    }
+  ],
+  "warnings": [],
+  "alternatives": [
+    "If the consumer also needs to inspect subscription metadata, add roles/pubsub.viewer at the same resource scope",
+    "For push-based delivery, no pubsub.subscriber role is needed — grant pubsub.publisher on the destination instead"
+  ]
+}

@@ -1,0 +1,108 @@
+# GoReleaser v2 config for iam-assist.
+# Docs: https://goreleaser.com
+# Test locally with: goreleaser release --snapshot --clean
+
+version: 2
+
+project_name: iam-assist
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: iam-assist
+    main: .
+    binary: iam-assist
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows arm64 is a tiny user base and Go support lags on CI.
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - configs/example.yaml
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Other"
+      order: 999
+
+release:
+  github:
+    owner: fathomforge
+    name: iam-assist
+  draft: false
+  prerelease: auto
+  header: |
+    ## iam-assist {{.Tag}}
+
+    Least-privilege GCP IAM policies from natural language, powered by your choice of LLM.
+
+    See the [README](https://github.com/fathomforge/iam-assist#readme) for install and quickstart.
+  footer: |
+    ---
+    **Full changelog**: https://github.com/fathomforge/iam-assist/compare/{{.PreviousTag}}...{{.Tag}}
+
+# Uncomment once you've created fathomforge/homebrew-tap and added
+# HOMEBREW_TAP_GITHUB_TOKEN as a repo secret. Do this AFTER your first
+# manual release so you can verify the artifacts first.
+#
+# brews:
+#   - name: iam-assist
+#     repository:
+#       owner: fathomforge
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     homepage: https://github.com/fathomforge/iam-assist
+#     description: "AI-powered least-privilege GCP IAM policy generator"
+#     license: Apache-2.0
+#     install: |
+#       bin.install "iam-assist"
+#     test: |
+#       system "#{bin}/iam-assist", "--version"

@@ -1,0 +1,31 @@
+{
+  "request": "The ETL service account etl-runner@analytics-prod.iam.gserviceaccount.com needs to write processed files into the bucket gs://analytics-prod-curated.",
+  "scope": {
+    "type": "resource",
+    "id": "projects/_/buckets/analytics-prod-curated",
+    "display": "gs://analytics-prod-curated"
+  },
+  "bindings": [
+    {
+      "role": "roles/storage.objectCreator",
+      "members": [
+        {
+          "type": "serviceAccount",
+          "email": "etl-runner@analytics-prod.iam.gserviceaccount.com",
+          "display": "ETL Runner"
+        }
+      ]
+    }
+  ],
+  "rationale": [
+    {
+      "permission": "storage.objects.create",
+      "reason": "append new processed objects to the bucket"
+    }
+  ],
+  "warnings": [],
+  "alternatives": [
+    "If the pipeline also overwrites existing objects, switch to roles/storage.objectAdmin on the same bucket",
+    "For read-back verification, grant an additional roles/storage.objectViewer binding"
+  ]
+}
