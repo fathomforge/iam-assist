@@ -109,7 +109,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	case outputTF:
 		output, err = terraform.Render(rec)
 		if err != nil {
-			return fmt.Errorf("Terraform rendering failed: %w", err)
+			return fmt.Errorf("terraform rendering failed: %w", err)
 		}
 	default:
 		// Terminal display + JSON for piping.

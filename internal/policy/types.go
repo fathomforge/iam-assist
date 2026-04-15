@@ -332,17 +332,10 @@ func (r *PolicyRecommendation) ToJSON() (string, error) {
 // ParseRecommendation deserializes the AI's JSON response into a PolicyRecommendation.
 func ParseRecommendation(raw string) (*PolicyRecommendation, error) {
 	// Strip markdown code fences if present.
-	cleaned := raw
-	cleaned = strings.TrimSpace(cleaned)
-	if strings.HasPrefix(cleaned, "```json") {
-		cleaned = strings.TrimPrefix(cleaned, "```json")
-	}
-	if strings.HasPrefix(cleaned, "```") {
-		cleaned = strings.TrimPrefix(cleaned, "```")
-	}
-	if strings.HasSuffix(cleaned, "```") {
-		cleaned = strings.TrimSuffix(cleaned, "```")
-	}
+	cleaned := strings.TrimSpace(raw)
+	cleaned = strings.TrimPrefix(cleaned, "```json")
+	cleaned = strings.TrimPrefix(cleaned, "```")
+	cleaned = strings.TrimSuffix(cleaned, "```")
 	cleaned = strings.TrimSpace(cleaned)
 
 	var rec PolicyRecommendation
