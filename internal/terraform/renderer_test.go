@@ -210,6 +210,124 @@ func TestRenderConditionWithQuotes(t *testing.T) {
 	}
 }
 
+// TestRenderBigQueryDatasetScope is a regression test for a real bug seen
+// against live GCP: a dataset-scoped request was producing a project-level
+// binding with the dataset path stuffed into the `project` attribute, which
+// terraform would then reject. The correct output is
+// google_bigquery_dataset_iam_member with the parent project in `project`
+// and the dataset id in `dataset_id`.
+func TestRenderBigQueryDatasetScope(t *testing.T) {
+	rec := &policy.PolicyRecommendation{
+		Request: "read access to the analytics BigQuery dataset in my-data-project",
+		Scope: policy.Scope{
+			Type:         "resource",
+			ResourceType: "bigquery_dataset",
+			Project:      "my-data-project",
+			ID:           "analytics",
+		},
+		Bindings: []policy.Binding{
+			{
+				Role:    "roles/bigquery.dataViewer",
+				Members: []policy.Member{{Type: "user", Email: "alice@example.com"}},
+			},
+		},
+	}
+
+	output, err := Render(rec)
+	if err != nil {
+		t.Fatalf("Render() error: %v", err)
+	}
+
+	for _, want := range []string{
+		`resource "google_bigquery_dataset_iam_member"`,
+		`project    = "my-data-project"`,
+		`dataset_id = "analytics"`,
+		`role   = "roles/bigquery.dataViewer"`,
+		`member = "user:alice@example.com"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Errorf("output missing %q\n\ngot:\n%s", want, output)
+		}
+	}
+
+	// Regression: must NOT emit a project-level resource or put a resource
+	// path into the project field.
+	if strings.Contains(output, `google_project_iam_member`) {
+		t.Errorf("should not emit google_project_iam_member for dataset scope\n\n%s", output)
+	}
+	if strings.Contains(output, `projects/my-data-project/datasets/`) {
+		t.Errorf("should not put a resource path into an attribute\n\n%s", output)
+	}
+}
+
+func TestRenderStorageBucketScope(t *testing.T) {
+	rec := &policy.PolicyRecommendation{
+		Request: "object viewer on gs://my-data",
+		Scope: policy.Scope{
+			Type:         "resource",
+			ResourceType: "storage_bucket",
+			ID:           "my-data",
+		},
+		Bindings: []policy.Binding{
+			{Role: "roles/storage.objectViewer", Members: []policy.Member{{Type: "user", Email: "a@co.com"}}},
+		},
+	}
+	out, err := Render(rec)
+	if err != nil {
+		t.Fatalf("Render() error: %v", err)
+	}
+	for _, want := range []string{
+		`resource "google_storage_bucket_iam_member"`,
+		`bucket = "my-data"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q\n\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderCloudRunServiceScope(t *testing.T) {
+	rec := &policy.PolicyRecommendation{
+		Request: "invoker on the web service",
+		Scope: policy.Scope{
+			Type:         "resource",
+			ResourceType: "cloud_run_service",
+			Project:      "my-proj",
+			Location:     "us-central1",
+			ID:           "web",
+		},
+		Bindings: []policy.Binding{
+			{Role: "roles/run.invoker", Members: []policy.Member{{Type: "serviceAccount", Email: "caller@my-proj.iam.gserviceaccount.com"}}},
+		},
+	}
+	out, err := Render(rec)
+	if err != nil {
+		t.Fatalf("Render() error: %v", err)
+	}
+	for _, want := range []string{
+		`resource "google_cloud_run_service_iam_member"`,
+		`project  = "my-proj"`,
+		`location = "us-central1"`,
+		`service  = "web"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q\n\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderUnknownResourceTypeErrors(t *testing.T) {
+	rec := &policy.PolicyRecommendation{
+		Scope: policy.Scope{Type: "resource", ResourceType: "mystery_box", ID: "x"},
+		Bindings: []policy.Binding{
+			{Role: "roles/viewer", Members: []policy.Member{{Type: "user", Email: "a@co.com"}}},
+		},
+	}
+	if _, err := Render(rec); err == nil {
+		t.Fatal("expected error for unknown resource_type, got nil")
+	}
+}
+
 func TestRenderOrgBinding(t *testing.T) {
 	rec := &policy.PolicyRecommendation{
 		Request: "Org-wide viewer",

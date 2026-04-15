@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fathomforge/iam-assist/internal/prompt"
 	"github.com/fathomforge/iam-assist/internal/provider"
@@ -52,6 +53,13 @@ func policyRecommendationSchema() map[string]any {
 		},
 		"required": []string{"type", "email"},
 	}
+	// Note: we deliberately do NOT mark any fields inside condition as
+	// required. Gemini's responseSchema dialect has no way to say "this
+	// object may be absent," so required-string fields get emitted with the
+	// literal value "null" when the model has nothing to say — which then
+	// spills into hallucinated garbage in adjacent fields. Making every
+	// sub-field optional lets the model emit an empty condition or omit it
+	// entirely; the post-parse normalize() in types.go drops either shape.
 	conditionSchema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
@@ -59,7 +67,6 @@ func policyRecommendationSchema() map[string]any {
 			"description": map[string]any{"type": "string"},
 			"expression":  map[string]any{"type": "string"},
 		},
-		"required": []string{"title", "expression"},
 	}
 	bindingSchema := map[string]any{
 		"type": "object",
@@ -98,13 +105,44 @@ func policyRecommendationSchema() map[string]any {
 					"type":    map[string]any{"type": "string", "enum": []string{"project", "folder", "organization", "resource"}},
 					"id":      map[string]any{"type": "string"},
 					"display": map[string]any{"type": "string"},
+					"resource_type": map[string]any{
+						"type": "string",
+						"enum": []string{
+							"bigquery_dataset",
+							"bigquery_table",
+							"storage_bucket",
+							"pubsub_topic",
+							"secret_manager_secret",
+							"cloud_run_service",
+						},
+					},
+					"project":  map[string]any{"type": "string"},
+					"location": map[string]any{"type": "string"},
+					"parent":   map[string]any{"type": "string"},
 				},
 				"required": []string{"type", "id"},
 			},
-			"bindings":         map[string]any{"type": "array", "items": bindingSchema},
-			"rationale":        map[string]any{"type": "array", "items": rationaleItemSchema},
-			"warnings":         map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-			"alternatives":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			// maxItems caps on the advisory arrays below are a defense
+			// against a Gemini failure mode: with constrained decoding, the
+			// model sometimes falls into a repetition loop and emits the
+			// literal string "null" hundreds of times into whichever free-form
+			// array appears next in the schema. That blows past MaxTokens
+			// before the JSON closes, and the whole response parse fails. A
+			// sensible cap (arrays this long are never useful anyway) makes
+			// the failure mode impossible to reach.
+			"bindings":  map[string]any{"type": "array", "items": bindingSchema},
+			"rationale": map[string]any{"type": "array", "items": rationaleItemSchema},
+			// maxItems on the two free-form string arrays below is a
+			// defense against a Gemini failure mode: with constrained
+			// decoding, the model occasionally falls into a repetition loop
+			// and fills whichever free-form array comes next in the schema
+			// with the literal string "null" hundreds of times, blowing
+			// past MaxTokens before the JSON closes. Caps on the nested
+			// object arrays above are rejected as "too many states for
+			// serving", but caps on plain string arrays are accepted — so
+			// we cap exactly where the loop happens.
+			"warnings":         map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": 10},
+			"alternatives":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": 5},
 			"uses_custom_role": map[string]any{"type": "boolean"},
 			"custom_role":      customRoleSchema,
 		},
@@ -145,6 +183,17 @@ func (g *Generator) Generate(ctx context.Context, request string, opts GenerateO
 	}
 	rec.Request = request
 
+	// Back-fill Scope.Project for resource-scoped bindings when the model
+	// forgot to include it. Most `google_*_iam_member` resources (BigQuery,
+	// Pub/Sub, Secret Manager, Cloud Run) have a required `project` field, so
+	// an empty string here renders invalid HCL. If the caller passed a
+	// project via --context, reuse it here instead of erroring.
+	if rec.Scope.Type == "resource" && rec.Scope.Project == "" {
+		if p := projectFromHints(opts.ContextHints); p != "" {
+			rec.Scope.Project = p
+		}
+	}
+
 	// 4. Optional refinement pass.
 	if opts.Refine {
 		refined, refineErr := g.refine(ctx, rec, temp)
@@ -158,6 +207,24 @@ func (g *Generator) Generate(ctx context.Context, request string, opts GenerateO
 	}
 
 	return rec, nil
+}
+
+// projectFromHints scans ContextHints for a "project: <id>" or "project=<id>"
+// pair (case-insensitive on the key) and returns the first value found. We
+// accept a few shapes because the CLI flag is free-form; any hint that
+// doesn't start with a recognizable "project" key is ignored.
+func projectFromHints(hints []string) string {
+	for _, h := range hints {
+		for _, sep := range []string{":", "="} {
+			if i := strings.Index(h, sep); i > 0 {
+				key := strings.TrimSpace(strings.ToLower(h[:i]))
+				if key == "project" || key == "project_id" || key == "project-id" {
+					return strings.TrimSpace(h[i+1:])
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // refine runs a second AI pass to tighten the policy.

@@ -7,10 +7,36 @@ import (
 )
 
 // Scope defines where the IAM binding applies.
+//
+// Type is the coarse scope level. When Type == "resource" the binding is
+// scoped to a single GCP resource below the project, and ResourceType picks
+// which `google_*_iam_member` resource the Terraform renderer emits. The
+// other fields (Project, Location, Parent) carry the extra attributes those
+// resource types need beyond the primary ID — for example a BigQuery table
+// binding needs Project + Parent (dataset_id) + ID (table_id), and a Cloud
+// Run service binding needs Project + Location + ID.
 type Scope struct {
 	Type    string `json:"type"`    // "project", "folder", "organization", "resource"
-	ID      string `json:"id"`      // e.g. "analytics-prod", "folders/12345"
+	ID      string `json:"id"`      // primary identifier (project id, folder number, org id, dataset/bucket/topic/secret/service id)
 	Display string `json:"display"` // human-readable label
+
+	// ResourceType selects the narrowly-scoped IAM resource kind when
+	// Type == "resource". One of: "bigquery_dataset", "bigquery_table",
+	// "storage_bucket", "pubsub_topic", "secret_manager_secret",
+	// "cloud_run_service". Empty when Type != "resource".
+	ResourceType string `json:"resource_type,omitempty"`
+
+	// Project is the parent project id for resource-scoped bindings that
+	// require one (BigQuery, Pub/Sub, Secret Manager, Cloud Run). Storage
+	// buckets are globally named and do not need a project here.
+	Project string `json:"project,omitempty"`
+
+	// Location is the region for regional resources (Cloud Run).
+	Location string `json:"location,omitempty"`
+
+	// Parent carries an intermediate identifier when the resource is nested
+	// under another (BigQuery table → dataset_id).
+	Parent string `json:"parent,omitempty"`
 }
 
 func (s Scope) String() string {
@@ -342,5 +368,47 @@ func ParseRecommendation(raw string) (*PolicyRecommendation, error) {
 	if err := json.Unmarshal([]byte(cleaned), &rec); err != nil {
 		return nil, fmt.Errorf("failed to parse policy recommendation: %w\nraw response:\n%s", err, raw)
 	}
+	rec.normalize()
 	return &rec, nil
+}
+
+// normalize cleans up common LLM output defects that the JSON schema can't
+// prevent on its own:
+//
+//  1. Gemini's responseSchema dialect has no way to say "this object field
+//     may be absent or null", so models sometimes emit a condition object
+//     populated with the literal string "null" in every field rather than
+//     omitting the field. Detect that shape and drop it to nil.
+//  2. An all-empty Condition struct has the same effect — nothing useful to
+//     render — and should also be dropped.
+func (r *PolicyRecommendation) normalize() {
+	for i := range r.Bindings {
+		c := r.Bindings[i].Condition
+		if c == nil {
+			continue
+		}
+		if isBlankOrNullString(c.Title) && isBlankOrNullString(c.Description) && isBlankOrNullString(c.Expression) {
+			r.Bindings[i].Condition = nil
+		}
+	}
+	r.Warnings = dropBlankOrNullStrings(r.Warnings)
+	r.Alternatives = dropBlankOrNullStrings(r.Alternatives)
+}
+
+func dropBlankOrNullStrings(in []string) []string {
+	if len(in) == 0 {
+		return in
+	}
+	out := in[:0]
+	for _, s := range in {
+		if !isBlankOrNullString(s) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func isBlankOrNullString(s string) bool {
+	t := strings.TrimSpace(s)
+	return t == "" || strings.EqualFold(t, "null")
 }
