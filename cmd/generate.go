@@ -41,7 +41,18 @@ func init() {
 	generateCmd.Flags().Float64("temperature", 0.1, "AI temperature (0.0-1.0)")
 }
 
-func runGenerate(cmd *cobra.Command, args []string) error {
+func runGenerate(cmd *cobra.Command, args []string) (retErr error) {
+	// If -o is set and we fail fatally, remove any pre-existing file at that
+	// path so a follow-up `cat <file>` doesn't silently show stale output from
+	// a previous successful run. A soft ErrRefinementFailed warning isn't a
+	// fatal return, so it correctly skips this cleanup.
+	outFile, _ := cmd.Flags().GetString("out")
+	defer func() {
+		if retErr != nil && outFile != "" {
+			removeStaleOutput(outFile)
+		}
+	}()
+
 	// 1. Resolve the request string.
 	request, err := resolveRequest(args)
 	if err != nil {
@@ -96,7 +107,6 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	// 5. Format output.
 	outputJSON, _ := cmd.Flags().GetBool("json")
 	outputTF, _ := cmd.Flags().GetBool("terraform")
-	outFile, _ := cmd.Flags().GetString("out")
 
 	var output string
 
@@ -220,6 +230,16 @@ func initProvider() (provider.Provider, error) {
 		return nil, err
 	}
 	return p, nil
+}
+
+// removeStaleOutput deletes path if it exists, so a failed `generate -o <path>`
+// run doesn't leave stale content from a previous successful run on disk.
+// Missing file is not an error; other errors are surfaced on stderr but do
+// not override the original command error.
+func removeStaleOutput(path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "⚠ could not remove stale output file %s: %v\n", path, err)
+	}
 }
 
 // isTerminal checks if stdout is a terminal.
