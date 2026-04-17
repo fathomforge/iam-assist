@@ -35,7 +35,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 || args[0] == "-" {
 		data, err = readStdin()
 	} else {
-		data, err = os.ReadFile(args[0])
+		data, err = readCappedFile(args[0])
 	}
 	if err != nil {
 		return fmt.Errorf("reading input: %w", err)
@@ -66,17 +66,19 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("\n\033[1mRisk Level:\033[0m %s%s\033[0m\n", riskColor, risk.Level)
 	for _, r := range risk.Reasons {
-		fmt.Printf("  • %s\n", r)
+		fmt.Printf("  • %s\n", policy.SanitizeDisplay(r))
 	}
 
-	// Binding details.
+	// Binding details. All LLM/JSON-sourced fields go through SanitizeDisplay
+	// so an attacker-controlled policy.json can't inject ANSI escape
+	// sequences that manipulate the terminal output.
 	fmt.Printf("\n\033[1mBindings (%d):\033[0m\n", len(rec.Bindings))
 	for _, b := range rec.Bindings {
 		info := policy.LookupRole(b.Role)
 		if info != nil {
-			fmt.Printf("  ✓ %s — %s (%d permissions)\n", b.Role, info.Title, info.PermissionCount)
+			fmt.Printf("  ✓ %s — %s (%d permissions)\n", policy.SanitizeDisplay(b.Role), policy.SanitizeDisplay(info.Title), info.PermissionCount)
 		} else {
-			fmt.Printf("  ? %s — not in known role database\n", b.Role)
+			fmt.Printf("  ? %s — not in known role database\n", policy.SanitizeDisplay(b.Role))
 		}
 	}
 
@@ -86,7 +88,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	if len(rec.Warnings) > 0 {
 		fmt.Printf("\n\033[1m\033[33m⚠ Policy Warnings:\033[0m\n")
 		for _, w := range rec.Warnings {
-			fmt.Printf("  \033[33m• %s\033[0m\n", w)
+			fmt.Printf("  \033[33m• %s\033[0m\n", policy.SanitizeDisplay(w))
 		}
 	}
 
@@ -94,7 +96,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	if len(roleWarnings) > 0 {
 		fmt.Printf("\n\033[1m\033[33m⚠ Least-Privilege Warnings:\033[0m\n")
 		for _, w := range roleWarnings {
-			fmt.Printf("  \033[33m• %s\033[0m\n", w)
+			fmt.Printf("  \033[33m• %s\033[0m\n", policy.SanitizeDisplay(w))
 		}
 	}
 
@@ -103,7 +105,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	if len(rec.Alternatives) > 0 {
 		fmt.Printf("\n\033[1m\033[36mAlternatives to consider:\033[0m\n")
 		for _, a := range rec.Alternatives {
-			fmt.Printf("  \033[2m• %s\033[0m\n", a)
+			fmt.Printf("  \033[2m• %s\033[0m\n", policy.SanitizeDisplay(a))
 		}
 	}
 

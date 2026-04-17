@@ -276,8 +276,22 @@ func Assess(rec *PolicyRecommendation, opts ...AssessOptions) RiskAssessment {
 
 		// 2. Public / external members.
 		for _, m := range b.Members {
-			emailLower := strings.ToLower(m.Email)
-			if publicMemberEmails[emailLower] || m.Type == "allUsers" || m.Type == "allAuthenticatedUsers" {
+			// Normalize before comparing: an attacker-controlled LLM
+			// response can drop leading/trailing whitespace, zero-width
+			// characters, or mixed case into the email or type fields to
+			// slip past the public-access check. Trimming + case-fold +
+			// EqualFold on both fields closes those bypasses.
+			emailLower := strings.ToLower(strings.TrimSpace(m.Email))
+			// Strip common zero-width / BOM characters that are invisible
+			// when rendered but defeat a plain string compare.
+			emailLower = strings.NewReplacer(
+				"\u200B", "", "\u200C", "", "\u200D", "",
+				"\uFEFF", "",
+			).Replace(emailLower)
+			typeNormalized := strings.TrimSpace(m.Type)
+			if publicMemberEmails[emailLower] ||
+				strings.EqualFold(typeNormalized, "allUsers") ||
+				strings.EqualFold(typeNormalized, "allAuthenticatedUsers") {
 				bump(RiskHigh)
 				reasons = append(reasons, fmt.Sprintf("%s grants public access on %s", m.IAMIdentity(), b.Role))
 				continue

@@ -125,7 +125,30 @@ resource "google_organization_iam_member" "{{ resourceName $b.Role $bi $mi }}" {
 // double quote, and the usual control characters. Escaping ${ and %{ is also
 // required to prevent unintended HCL template interpolation in user-supplied
 // content (e.g. a CEL expression that legitimately contains "${var}").
+//
+// Stray C0 control bytes other than \n/\r/\t are stripped rather than
+// passed through. HCL would accept them literally, but they'd survive
+// round-trips through `cat`, CI log viewers, and diff tools as raw terminal
+// escape bytes — exactly the kind of bytes an attacker-controlled LLM
+// response could use to rewrite the screen when the generated .tf file is
+// later inspected.
 func tfStringEscape(s string) string {
+	// Strip C0 controls (0x00-0x1F) other than \n \r \t, plus DEL (0x7F) and
+	// C1 controls (0x80-0x9F). We do this before the replacer so the string
+	// we hand to NewReplacer is already clean of bytes that have no valid
+	// place in an HCL string literal.
+	var clean strings.Builder
+	clean.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r == '\t' || r == '\n' || r == '\r':
+			clean.WriteRune(r)
+		case r < 0x20 || r == 0x7F || (r >= 0x80 && r <= 0x9F):
+			// drop
+		default:
+			clean.WriteRune(r)
+		}
+	}
 	r := strings.NewReplacer(
 		`\`, `\\`,
 		`"`, `\"`,
@@ -135,7 +158,7 @@ func tfStringEscape(s string) string {
 		`${`, `$${`,
 		`%{`, `%%{`,
 	)
-	return r.Replace(s)
+	return r.Replace(clean.String())
 }
 
 var funcMap = template.FuncMap{
@@ -169,6 +192,23 @@ var funcMap = template.FuncMap{
 		}
 		return fmt.Sprintf(`"%s"`, tfStringEscape(role))
 	},
+}
+
+// validateForRender enforces allowlist validation on the fields that get
+// interpolated into HCL positions where escaping is not sufficient (resource
+// addresses, role references that are sometimes emitted unquoted).
+func validateForRender(rec *policy.PolicyRecommendation) error {
+	for i, b := range rec.Bindings {
+		if !policy.IsValidRoleRef(b.Role) {
+			return fmt.Errorf("binding %d: role %q is not a valid GCP role reference", i, b.Role)
+		}
+	}
+	if rec.CustomRole != nil {
+		if !policy.IsValidCustomRoleID(rec.CustomRole.ID) {
+			return fmt.Errorf("custom role id %q is not safe for HCL (must match [a-zA-Z][a-zA-Z0-9_]{2,63})", rec.CustomRole.ID)
+		}
+	}
+	return nil
 }
 
 // RenderData holds all data needed for template rendering.
@@ -245,7 +285,18 @@ var resourceScopeSpecs = map[string]resourceScopeSpec{
 }
 
 // Render produces Terraform HCL from a PolicyRecommendation.
+//
+// Render treats rec as UNTRUSTED. Role strings and custom-role IDs flow into
+// HCL positions (resource addresses, role references) where escaping alone
+// can't prevent injection, so we validate them with strict allowlists and
+// refuse to render if anything looks wrong. An attacker who controls the
+// LLM response or the JSON fed to `review` / `validate` must not be able to
+// cause `terraform apply` to do something unexpected.
 func Render(rec *policy.PolicyRecommendation) (string, error) {
+	if err := validateForRender(rec); err != nil {
+		return "", err
+	}
+
 	risk := policy.Assess(rec)
 
 	data := RenderData{
