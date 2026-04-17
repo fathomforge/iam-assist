@@ -4,27 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 )
-
-// redactKey returns an error whose message is the original error with every
-// occurrence of apiKey replaced by "<redacted>". Used as defense in depth so
-// that even if the key ends up in a transport-layer error (e.g. via *url.Error)
-// it is never written to logs or stderr.
-func redactKey(err error, apiKey string) error {
-	if err == nil || apiKey == "" {
-		return err
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, apiKey) {
-		return err
-	}
-	return errors.New(strings.ReplaceAll(msg, apiKey, "<redacted>"))
-}
 
 const (
 	googleDefaultModel = "gemini-2.5-flash"
@@ -111,9 +93,9 @@ func (g *googleProvider) Complete(ctx context.Context, req CompletionRequest) (*
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := readCappedBody(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google API error (%d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("google API error (%d): %s", resp.StatusCode, truncateForError(string(respBody)))
 	}
 
 	var result struct {

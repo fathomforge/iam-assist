@@ -108,7 +108,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	b.WriteString("  refine: false\n")
 	b.WriteString("  temperature: 0.1\n")
 
-	if err := os.WriteFile(configPath, []byte(b.String()), 0644); err != nil {
+	// 0600: even though init.go does not prompt for an API key, a user may
+	// still paste one into the file later. Owner-only permissions make that
+	// far safer on shared machines.
+	if err := os.WriteFile(configPath, []byte(b.String()), 0600); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 )
 
@@ -61,13 +60,13 @@ func (o *openaiProvider) Complete(ctx context.Context, req CompletionRequest) (*
 
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("openai request failed: %w", err)
+		return nil, fmt.Errorf("openai request failed: %w", redactKey(err, o.apiKey))
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := readCappedBody(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("openai API error (%d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("openai API error (%d): %s", resp.StatusCode, truncateForError(string(respBody)))
 	}
 
 	var result struct {
