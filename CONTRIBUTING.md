@@ -87,6 +87,36 @@ Examples:
 - `fix(terraform): escape quotes inside CEL expressions`
 - `docs(README): add privacy statement`
 
+## Releasing
+
+Releases are cut by pushing a `v*` tag; `.github/workflows/release.yml` runs
+GoReleaser, which builds the archives, uploads them to the GitHub release, and
+generates the Homebrew cask.
+
+Validate config changes locally before tagging:
+
+```bash
+goreleaser check
+goreleaser release --snapshot --clean --skip=publish
+```
+
+### Homebrew tap (one-time setup)
+
+The cask in `.goreleaser.yaml` only publishes once both of these exist:
+
+1. A public repo `github.com/fathomforge/homebrew-tap` with a `Casks/`
+   directory on its default branch (`main`).
+2. A `HOMEBREW_TAP_GITHUB_TOKEN` secret on this repo — a PAT with
+   `contents: write` on the tap. The workflow's default `GITHUB_TOKEN` cannot
+   push to another repository.
+
+Until then `skip_upload` evaluates to `true`, so GoReleaser writes the cask to
+`dist/` and the release still succeeds. Users install with:
+
+```bash
+brew install --cask fathomforge/tap/iam-assist
+```
+
 ## Review turnaround
 
 Best-effort within a week. This is a small project — if you don't hear back

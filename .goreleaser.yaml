@@ -39,7 +39,7 @@ archives:
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - LICENSE
       - README.md
@@ -50,7 +50,7 @@ checksum:
   algorithm: sha256
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -89,20 +89,28 @@ release:
     ---
     **Full changelog**: https://github.com/fathomforge/iam-assist/compare/{{.PreviousTag}}...{{.Tag}}
 
-# Uncomment once you've created fathomforge/homebrew-tap and added
-# HOMEBREW_TAP_GITHUB_TOKEN as a repo secret. Do this AFTER your first
-# manual release so you can verify the artifacts first.
+# Homebrew cask, published to fathomforge/homebrew-tap on each release.
 #
-# brews:
-#   - name: iam-assist
-#     repository:
-#       owner: fathomforge
-#       name: homebrew-tap
-#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-#     homepage: https://github.com/fathomforge/iam-assist
-#     description: "AI-powered least-privilege GCP IAM policy generator"
-#     license: Apache-2.0
-#     install: |
-#       bin.install "iam-assist"
-#     test: |
-#       system "#{bin}/iam-assist", "--version"
+# This block is inert until BOTH of these exist:
+#   1. the public repo github.com/fathomforge/homebrew-tap
+#   2. a HOMEBREW_TAP_GITHUB_TOKEN repo secret (a PAT with `contents: write`
+#      on the tap; the default GITHUB_TOKEN cannot push to another repo)
+#
+# With the token unset, skip_upload evaluates to true and GoReleaser writes the
+# cask to dist/ without pushing, so a release never fails on a missing tap.
+homebrew_casks:
+  - name: iam-assist
+    binaries:
+      - iam-assist
+    homepage: https://github.com/fathomforge/iam-assist
+    description: "AI-powered least-privilege GCP IAM policy generator"
+    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "") "" }}true{{ else }}false{{ end }}'
+    repository:
+      owner: fathomforge
+      name: homebrew-tap
+      branch: main
+      token: '{{ envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}'
+    commit_author:
+      name: goreleaser-bot
+      email: bot@fathomforge.dev
+    commit_msg_template: "chore(cask): iam-assist {{ .Tag }}"

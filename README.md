@@ -42,17 +42,20 @@ Rationale:
 
 ## Install
 
-**Homebrew** (macOS / Linux):
+**Homebrew** (macOS / Linux) — available from the first stable release:
 
 ```bash
-brew install fathomforge/tap/iam-assist
+brew install --cask fathomforge/tap/iam-assist
 ```
 
-**Prebuilt binary** (Linux / macOS / Windows, amd64 + arm64) — from the [latest release](https://github.com/fathomforge/iam-assist/releases/latest):
+**Prebuilt binary** (Linux / macOS / Windows, amd64 + arm64) — from the [releases page](https://github.com/fathomforge/iam-assist/releases):
 
 ```bash
-# Linux / macOS one-liner
-curl -fsSL https://github.com/fathomforge/iam-assist/releases/latest/download/iam-assist_linux_amd64.tar.gz | tar -xz
+# Linux / macOS: resolve the newest tag, then fetch the matching archive.
+# Release archives are named iam-assist_<version>_<os>_<arch>.tar.gz (no leading "v").
+TAG=$(curl -fsSL https://api.github.com/repos/fathomforge/iam-assist/releases \
+  | grep -m1 '"tag_name"' | cut -d'"' -f4)
+curl -fsSL "https://github.com/fathomforge/iam-assist/releases/download/${TAG}/iam-assist_${TAG#v}_linux_amd64.tar.gz" | tar -xz
 sudo mv iam-assist /usr/local/bin/
 iam-assist --version
 ```
