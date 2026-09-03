@@ -22,3 +22,6 @@ vendor/
 # OS
 .DS_Store
 Thumbs.db
+
+# GoReleaser build output
+dist/
