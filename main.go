@@ -6,16 +6,21 @@ import (
 	"github.com/fathomforge/iam-assist/cmd"
 )
 
-// version is populated at build time via:
+// Populated at build time via:
 //
-//	go build -ldflags "-X main.version=v0.1.0" .
+//	go build -ldflags "-X main.version=v0.1.0 -X main.commit=abc123 -X main.date=..." .
 //
-// It defaults to "dev" for local builds so `iam-assist --version` always
-// prints something useful even when not built through the Makefile.
-var version = "dev"
+// They stay empty for `go install`, which does not apply our ldflags; in that
+// case cmd.ResolveVersion falls back to the build info the Go toolchain stamps
+// into every binary.
+var (
+	version = "dev"
+	commit  = ""
+	date    = ""
+)
 
 func main() {
-	cmd.SetVersion(version)
+	cmd.SetVersion(cmd.ResolveVersion(version, commit, date))
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
