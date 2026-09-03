@@ -104,6 +104,23 @@ homebrew_casks:
       - iam-assist
     homepage: https://github.com/fathomforge/iam-assist
     description: "AI-powered least-privilege GCP IAM policy generator"
+    # Go emits an ad-hoc/linker-signed binary, not one signed with an Apple
+    # Developer ID and notarized. Homebrew stamps cask downloads with
+    # com.apple.quarantine, and macOS SIGKILLs an unsigned quarantined binary --
+    # so without this, `brew install --cask` yields a binary that cannot run
+    # ("Apple could not verify iam-assist is free of malware"). The curl install
+    # path is unaffected, since it never sets the attribute.
+    #
+    # This strips the attribute rather than satisfying Gatekeeper. The real fix
+    # is Developer ID signing + notarization, which needs a paid Apple Developer
+    # account; drop this hook once that exists. Apple may also disable this
+    # bypass in a future macOS release.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/iam-assist"]
+          end
     repository:
       owner: fathomforge
       name: homebrew-tap
