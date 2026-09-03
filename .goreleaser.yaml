@@ -91,25 +91,24 @@ release:
 
 # Homebrew cask, published to fathomforge/homebrew-tap on each release.
 #
-# This block is inert until BOTH of these exist:
-#   1. the public repo github.com/fathomforge/homebrew-tap
-#   2. a HOMEBREW_TAP_GITHUB_TOKEN repo secret (a PAT with `contents: write`
-#      on the tap; the default GITHUB_TOKEN cannot push to another repo)
+# Requires the HOMEBREW_TAP_GITHUB_TOKEN repo secret: a PAT with
+# `contents: write` on the tap. The workflow's default GITHUB_TOKEN cannot push
+# to another repository.
 #
-# With the token unset, skip_upload evaluates to true and GoReleaser writes the
-# cask to dist/ without pushing, so a release never fails on a missing tap.
+# Note: this token template is only evaluated during publish, which snapshot
+# builds skip -- so `goreleaser release --snapshot` cannot validate it. Keep it
+# to the plain `.Env.NAME` form rather than a helper function.
 homebrew_casks:
   - name: iam-assist
     binaries:
       - iam-assist
     homepage: https://github.com/fathomforge/iam-assist
     description: "AI-powered least-privilege GCP IAM policy generator"
-    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "") "" }}true{{ else }}false{{ end }}'
     repository:
       owner: fathomforge
       name: homebrew-tap
       branch: main
-      token: '{{ envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}'
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     commit_author:
       name: goreleaser-bot
       email: bot@fathomforge.dev
